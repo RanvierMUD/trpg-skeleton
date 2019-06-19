@@ -2,7 +2,7 @@
   "attributes": {
     "health": {
       "delta": 0,
-      "base": 100
+      "base": 3
     },
     "movement": {
       "delta": 0,

@@ -1,6 +1,6 @@
 'use strict';
 
-const { Broadcast } = require('ranvier');
+const { Broadcast, Damage } = require('ranvier');
 const { CombatMap } = require('./CombatMap');
 const CombatMenu = require('./CombatMenu');
 
@@ -14,6 +14,7 @@ class CombatParticipant {
 
 /**
  * Driver for a combat session
+ * @broadcastable
  */
 module.exports = class CombatController {
   constructor(state) {
@@ -27,10 +28,18 @@ module.exports = class CombatController {
     this.menu = new CombatMenu(state, this);
   }
 
+  /**
+   * Get participants sorted by initiative (highest first)
+   * @return {Array<CombatParticipant>}
+   */
   get order() {
     return this.participants.sort((a, b) => b.initiative - a.initiative);
   }
 
+  /**
+   * Get participant for current turn
+   * @return {CombatParticipant}
+   */
   get currentParticipant() {
     return this.orderIndex !== null ? this.order[this.orderIndex] : null;
   }
@@ -45,10 +54,16 @@ module.exports = class CombatController {
     this.participants.push(new CombatParticipant(
       character,
       team,
+      // TODO: need to roll initiative
       character.getAttribute('initiative')
     ))
   }
 
+  /**
+   * Start a new combat session between given player and target.
+   * @param {Player} player
+   * @param {Character} target
+   */
   beginCombat(player, target) {
     // TODO: get map from current room CombatMap.fromRoom(player.room)
     this.map = CombatMap.fromDefault(this);
@@ -59,9 +74,6 @@ module.exports = class CombatController {
     const blue = [player];
     const red = [target];
 
-
-    // TODO: for each player in combat do socket.removeAllListeners('data') to remove them from the command loop
-
     for (const c of blue) {
       this.addParticipant(c, this.BLUETEAM);
     }
@@ -70,7 +82,6 @@ module.exports = class CombatController {
       this.addParticipant(c, this.REDTEAM);
     }
 
-    // TODO: distribute participants
     this.map.distribute(this.participants);
 
     for (const { character } of this.participants) {
@@ -102,10 +113,16 @@ module.exports = class CombatController {
     }
   }
 
+  /**
+   * Advance to the next combat turn
+   */
   nextTurn() {
+    // TODO: check to see if all characters of a team are downed to end the fight
+
     let currentP = this.currentParticipant;
 
-    if (currentP) {
+    // downed characters don't get a turn
+    if (currentP && currentP.character.combatData.condition !== 'downed') {
       for (const p of this.order) {
         p.character.emit('combatTurnElapsed');
 
@@ -118,7 +135,6 @@ module.exports = class CombatController {
 
         Broadcast.sayAt(p.character, `-> ${currentP.character.name} ends their turn.`);
       }
-
     }
 
     if (this.orderIndex + 1 >= this.order.length) {
@@ -129,8 +145,14 @@ module.exports = class CombatController {
     }
 
     currentP = this.currentParticipant;
-    currentP.character.combatData.onTurn = true;
-    currentP.character.emit('combatStartTurn');
+    const currentChar = currentP.character;
+
+    if (currentChar.combatData.condition === 'downed') {
+      return this.nextTurn();
+    }
+
+    currentChar.combatData.onTurn = true;
+    currentChar.emit('combatStartTurn');
 
 
     for (const p of this.order) {
@@ -139,14 +161,56 @@ module.exports = class CombatController {
         continue;
       }
 
-      Broadcast.sayAt(p.character, `-> ${currentP.character.name} starts their turn.`);
+      Broadcast.sayAt(p.character, `-> ${currentChar.name} starts their turn.`);
     }
 
 
-    if (currentP.character.isNpc) {
-      // TODO: for NPC get configured AI from metadata or fallback to BestialAI (always advanced to nearest enemy and attacks)
-      this.nextTurn();
-      return;
+    if (currentChar.isNpc) {
+      const ai = currentChar.getMeta('combatAI') ? require('../../../' + currentChar.getMeta('combatAI')) : require('./ai/Idiot');
+      return ai.doTurn(this, currentChar);
     }
+  }
+
+  /**
+   * Any damage dealt should go through this method so there is a central
+   * place to check to see if damage should down a character. Otherwise it's
+   * spread between different behaviors/events and it gets messy
+   * @param {Damage} damage
+   * @param {Character} target
+   */
+  doDamage(damage, target) {
+    damage.commit(target);
+
+    if (target.getAttribute('health') <= 0) {
+      Broadcast.sayAt(this, `-> ${target.name} falls unconscious!`);
+      target.combatData.condition = 'downed';
+      target.emit('downed');
+    }
+  }
+
+  /**
+   * Any healing done should go through this method so there is a central
+   * place to bring a character back from downed condition. Otherwise it's
+   * spread between different behaviors/events and it gets messy.
+   *
+   * If brought back from downed the character will be prone
+   *
+   * @param {Heal} heal
+   * @param {Character} target
+   */
+  doHealing(heal, target) {
+    heal.commit(target);
+    if (target.getAttribute('health') > 0) {
+      Broadcast.sayAt(this, `-> ${target.name} is now conscious!`);
+      target.combatData.condition = 'prone';
+    }
+  }
+
+  /**
+   * Can use the controller as a broadcast target to send a message to all participants
+   * @return {Array<Character>}
+   */
+  getBroadcastTargets() {
+    return this.participants.map(p => p.character);
   }
 };

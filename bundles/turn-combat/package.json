@@ -1,0 +1,8 @@
+{
+  "name": "ranvier-turn-combat",
+  "version": "0.0.1",
+  "license": "MIT",
+  "dependencies": {
+    "pathfinding": "^0.4.18"
+  }
+}

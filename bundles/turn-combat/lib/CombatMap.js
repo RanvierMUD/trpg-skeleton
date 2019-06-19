@@ -1,12 +1,17 @@
 'use strict';
 
 const { AreaFloor, Broadcast: B } = require('ranvier');
+const PF = require('pathfinding');
 
 class CombatMap extends AreaFloor {
   constructor(controller) {
     super(0);
     this.controller = controller;
     this.startingLocs = null;
+    this.pfGrid = null;
+    this.finder = new PF.BestFirstFinder({
+      heuristic: PF.Heuristic.chebyshev,
+    });
   }
 
   static fromDefault(controller) {
@@ -19,7 +24,13 @@ class CombatMap extends AreaFloor {
       map.addRoom(x, y, CombatCell.fromSigil([x, y], '.'));
     }
 
+
+    map.setupGrid();
     return map;
+  }
+
+  setupGrid() {
+    this.pfGrid = new PF.Grid(this.highX + 1, this.highY + 1);
   }
 
   addRoom(x, y, cell) {
@@ -141,6 +152,92 @@ class CombatMap extends AreaFloor {
 
     // 0-9
     return String.fromCharCode(48 + allyIndex);
+  }
+
+  /**
+   * Find first adjacent enemy clockwise N/E/S/W for a given character
+   * @param {Character}
+   * @return {Character}
+   */
+  getFirstAdjacentEnemy(char) {
+    const [x, y] = char.combatData.cell.coordinates;
+    const adjacentCells = [
+      [x, y + 1],
+      [x + 1, y],
+      [x, y - 1],
+      [x - 1, y],
+    ];
+
+    for (const [aX, aY] of adjacentCells) {
+      const aCell = this.getRoom(aX, aY);
+      if (!aCell || !aCell.occupant || aCell.occupant.combatData.team === char.combatData.team) {
+        continue;
+      }
+
+      return aCell.occupant;
+    }
+
+    return null;
+  }
+
+  findPath(cellA, cellB) {
+    if (!this.pfGrid) {
+      return null;
+    }
+
+    const [xA, yA] = cellA.coordinates;
+    const [xB, yB] = cellB.coordinates;
+
+    const path = this.finder.findPath(xA, yA, xB, yB, this.pfGrid.clone());
+
+    if (!path || !path.length) {
+      return null;
+    }
+
+    // findPath includes the starting cell in the path, get rid of that
+    return path.slice(1);
+  }
+
+  /**
+   * @return {{
+   *   enemy: Character, // nearest enemy found
+   *   path: Array<[number, number]> @see findPath
+   * }}
+   */
+  findPathToNearestEnemy(char) {
+    const closest = this.findNearestEnemy(char);
+    const path = this.findPath(char.combatData.cell, closest.combatData.cell);
+
+    if (!path) {
+      return null;
+    }
+
+    // remove the final cell from the path since that will be the actual enemy's cell
+    // we just want to move next to them
+    path.splice(path.length - 1);
+
+    return {
+      enemy: closest,
+      path,
+    };
+  }
+
+  findNearestEnemy(char) {
+    const enemies = this.controller.participants
+      .filter(p => p.team !== char.combatData.team)
+      .map(p => p.character)
+    ;
+
+    if (!enemies.length) {
+      return null;
+    }
+
+    return enemies.sort((eA, eB) => {
+      const aDistance = this.getDistance(char.combatData.cell, eA.combatData.cell);
+      const bDistance = this.getDistance(char.combatData.cell, eB.combatData.cell);
+
+      return aDistance - bDistance;
+    })[0];
   }
 
   static getDistance(cellA, cellB) {
