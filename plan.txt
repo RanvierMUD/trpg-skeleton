@@ -1,0 +1,20 @@
+* All participants start at 'beginning' state
+* Build participant order
+* Determine participant's turn actions for current state:
+  * NPCs look at NpcCombatActions::getForState()
+  * Players call PlayerCombatActions::getForState()
+  * Classed NPCs/Players add PlayerClass::getActionsForState
+  * Effects can add actions by having a `combatStates(currentState)` modifier
+  * Combat code should use events to allow for triggers:
+    * endCombatState
+    * startCombatState
+  * Chosen action calls executeAction(string action): {{ nextState: ?string, args: ?Array<*> }}
+    * endCombatState emitted
+    * if nextState should set the character's new combat state
+    * startCombatState emitted (with args from executeAction return if set)
+
+States:
+* begin
+* action
+* choose-target
+* end

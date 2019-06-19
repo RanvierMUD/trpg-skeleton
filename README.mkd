@@ -1,0 +1,225 @@
+CombatManager? (Global container of all active CombatControllers, not sure if necessary)
+
+CombatController
+ * props: participants, roundNumber
+ * beginCombat(player, target)
+ * combatData.controller set for each participant
+ * "banding" metadata for NPCs which pull specified NPC entityRefs in same room into combat
+ * Controller.participants (all), .npcs/pcs = getter filter participants
+ * Controller.determineOrder sets to Array<Char> .order, determined by initiative stat: computed attribute formula includes
+   AGI, level and any +initiative effects
+ * Killed Char not removed from order, allows future proofing for "downed" actions
+ * Determining next char in order should allow for things like skipping a char or giving multiple turns
+
+Future thoughts:
+ * Assassin class perk that says something like: At the start of combat if you go first your movement is
+doubled, get an extra attack, and avoid opportunity attacks until end of first turn.
+ * Vigilant perk giving AC bonus until player takes first turn in combat
+ 
+character combatData:
+  controller: CombatController instance
+  statuses: Array<stunned, engaged, downed, etc.>
+  position: standing, prone, flying, etc.
+  cell: current CombatCell 
+  lastAction: hold previous action for use with !!
+
+CombatMap (ex AreaFloor):
+ * Room combat starts in may define a combat map, if no map specified blank 10x10 grid.
+   Start positions for NPCs default to random spot from top half, bottom half for PCs
+ * Maps defined inside an area folder
+ * static fromLayout factory used by controller
+ * CombatCell (New class)
+ * CombatCell props: coordinates, sigil, occupant, type
+ * CombatCell char is in set to combatData.cell
+ * Should be able to configure NPC and PC starting coords picked randomly at start of combat
+
+```
+    start:
+      npc: [[0, 3], [1, 2]]
+      pc: [[7, 2], [6, 3]]
+```
+
+ * NPCs brought into combat by banding limited by available starting spots
+ * Defined by ascii art layout, should be 10x10 but can use larger for special encounters:
+ * PCs indicated by 0-9, @ = current player (commands should allow @ as target self alias)
+ * NPCs indicated by A-Z
+ * . = free space
+ * |, - = walls, blocks LoS, cannot be occupied
+ * (space) = void, cannot be occupied/targeted
+ * ~ = water, cannot be occupied, does not block LoS
+ * `#` = rough terrain, costs double movement
+
+Combat menu:
+ * Get menu for current state/class, e.g., don't show attack option after already attacked or proned
+ * selected option calls back to menu item source passing in any arguments
+ * Options should allow ! modifier to combine/alter functionality
+ * a) Attack, e.g., a B (Attack NPC speficied by letter B)
+   * Bare action (no !) will only attempt to attack if in range
+   * a! - Move into range before attacking, if player can't reach even with all movement do nothing
+   * If no target given defaults to nearby enemy if 1v1, if multiple
+   * a B prone - attempt to knock down target instead of causing damage, contests Might.
+ * a) may become Action and allow selection of attack/skill like the Cast menu
+ * m) Move
+   * Bare action will not traverse rough terrain and will stop movement if it would cause opportunity attack
+   * m B - Move towards NPC B
+   * m n2 e3 - Move north 2, east 3. Allow n/s/e/w or u/d/l/r, ignore spaces, no diagonal movement
+ * t) Cast (Sorry, c is already taken by charsheet, s already taken by show map, m already taken by move... smh)
+   * Shows spell menu with no argument
+   * t 1 B - cast spell 1 at NPC B
+   * t 1 n2e3 - cast spell 1 at cell 2 north 3 east from caster
+   * Modifier thoughts ? Allow curing NPCs, allow damaging PCs, allow targeting empty space?
+ * i) Inspect
+   * i A - show stats about target: name, health, distance from player, status (stunned, prone, etc.)
+   * No modifier (can't think of any need)
+ * f) Flee
+   * Run from combat removing everyone from combat
+   * If any players are engaged (adjacent to an enemy) contest better of player's Might/Agility against same stat of Enemy (strong player vs weak enemy = escape, agile player vs slow enemy = escape) gives player chance to escape even if enemy is more powerful in one area vs another. On failure give stacking bonus to player. Creates a race to escape before you're killed from a powerful enemy.
+   * Modifier? Maybe force flee, guaranteeing success but costing some XP like 1/4th of a death XP loss
+ * !! (hidden) repeat last action if possible, checks combatData.lastAction 
+
+```
+It is your turn.
+
+  -----------------------
+  | . . . . - - - - . . |
+  | . . . A |     | . . |
+  | . . . . |     | . . |
+  | . . . . - - - - . . |
+  | ~ ~ . . . . . . . . |
+  | ~ ~ ~ ~ ~ . . ~ ~ . |
+  | . . ~ ~ ~ . . ~ ~ ~ |
+  | . . . . . . . . . ~ |
+  | . 2 . . . . . . . . |
+  | . . . 1 . . . . . . |
+  -----------------------
+---------------------------
+|a) Attack     m) Move    |
+|f) Flee       l) List    |
+|s) Show Map   i) Inspect |
+|c) Char       e) End Turn|
+---------------------------
+| HP: 12/12   Movement: 6 |
+| Range: 1                |
+ --------------------------
+
+> l
+
+-------------------------
+| Round 1               |
+| >1: You               |
+|  A: Brigand           |
+|  2: Dudebro76         |
+-------------------------
+
+> a A - Out of range!
+> m A
+
+You move towards Brigand.
+ 
+  -----------------------
+  | . . . . - - - - . . |
+  | . . . A |     | . . |
+  | . . . . |     | . . |
+  | . . . . - - - - . . |
+  | ~ ~ . . . . . . . . |
+  | ~ ~ ~ ~ ~ 1 . ~ ~ . |
+  | . . ~ ~ ~ . . ~ ~ ~ |
+  | . . . . . . . . . ~ |
+  | . 2 . . . . . . . . |
+  | . . . . . . . . . . |
+  -----------------------
+
+ --------------------------
+| HP: 12/12   Movement: 0 |
+| Range: 1                |
+ --------------------------
+
+> ?
+
+ -------------------------
+|a) Attack    m) Move    |
+|f) Flee      l) List    |
+|s) Show Map  i) Inspect |
+|c) Char      e) End Turn|
+ -------------------------
+
+> c
+
+------------------------------
+| Joe AwesomeGuy             |
+| Level: 1 Warrior           |
+| HP: 12/12  AC: 18 Prof: +2 |
+| Movement: 6                |
+|                            |
+| Mgt: 16 (+3)               |
+| Agi: 10 (+0)               |
+| Vit: 14 (+2)               |
+| Ess: 8  (-1)               |
+| Ins: 10 (+0)               |
+|                            |
+| Attacks:                   |
+| -Sword:                    |
+|   Hit: +5 Dam: 1d6+3       |
+|   Range: 1                 |
+------------------------------
+
+> e
+
+You end your turn.
+
+Brigand moves towards you.
+
+  -----------------------
+  | . . . . - - - - . . |
+  | . . . . |     | . . |
+  | . . . . |     | . . |
+  | . . . . - - - - . . |
+  | ~ ~ . . . A . . . . |
+  | ~ ~ ~ ~ ~ 1 . ~ ~ . |
+  | . . ~ ~ ~ . . ~ ~ ~ |
+  | . . . . . . . . . ~ |
+  | . 2 . . . . . . . . |
+  | . . . . . . . . . . |
+  -----------------------
+
+Brigand attacks you!
+Attack Roll: 19 vs AC 18 (Hit)
+You take 3 points of slashing damage.
+HP is now 9/12.
+
+Dudebro76 fires at Brigand.
+Roll: 12 (Miss)
+
+It is your turn.
+
+  -----------------------
+  | . . . . - - - - . . |
+  | . . . . |     | . . |
+  | . . . . |     | . . |
+  | . . . . - - - - . . |
+  | ~ ~ . . . A . . . . |
+  | ~ ~ ~ ~ ~ 1 . ~ ~ . |
+  | . . ~ ~ ~ . . ~ ~ ~ |
+  | . . . . . . . . . ~ |
+  | . 2 . . . . . . . . |
+  | . . . . . . . . . . |
+  -----------------------
+
+ --------------------------
+|a) Attack     m) Move    |
+|f) Flee       l) List    |
+|s) Show Map   i) Inspect |
+|c) Char       e) End Turn|
+ --------------------------
+| HP: 9/12    Movement: 6 |
+| Range: 1                |
+ --------------------------
+
+> a
+
+You attack Brigand!
+Attack Roll: 9 + 5 = 14 (Hit)
+Damage Roll: (1d6 -> 3) + 3 = 6
+You deal 6 points of slashing damage.
+Brigand looks badly hurt.
+```

@@ -1,0 +1,14 @@
+---
+- id: start
+  coordinates: [0, 0, 0]
+  title: Start
+  description: Empty starting room
+  npcs: ['demo:enemy']
+- id: eastwing
+  coordinates: [1, 0, 0]
+  title: East Room
+  description: Empty starting room
+- id: westwing
+  coordinates: [-1, 0, 0]
+  title: West Room
+  description: Empty starting room

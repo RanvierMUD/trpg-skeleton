@@ -1,0 +1,3 @@
+[submodule "bundles/telnet-networking"]
+	path = bundles/telnet-networking
+	url = https://github.com/ranviermud/telnet-networking

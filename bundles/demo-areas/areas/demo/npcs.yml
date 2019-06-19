@@ -1,0 +1,11 @@
+---
+- id: enemy
+  keywords: ['enemy']
+  name: Demo Enemy
+  level: 1
+  description: Demo Enemy
+  behaviors: []
+  attributes:
+    health: 7
+    initiative: 0
+    agility: 7

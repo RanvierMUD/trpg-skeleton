@@ -1,0 +1,33 @@
+{
+  "name": "ranviermud",
+  "version": "2.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/shawncplus/ranviermud.git"
+  },
+  "engines": {
+    "node": ">= 10.12.0"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "node ./ranvier -v --save=10 --respawn=10",
+    "init": "node ./util/init-bundles.js",
+    "update-bundle-remote": "node ./util/update-bundle-url.js",
+    "remove-bundle": "node ./util/remove-bundle.js",
+    "install-bundle": "node ./util/install-bundle.js"
+  },
+  "dependencies": {
+    "commander": "^2.19.0",
+    "optimist": "",
+    "ranvier": "^3.0.5",
+    "ranvier-datasource-file": "^1.0.3",
+    "semver": "^5.6.0",
+    "sprintf-js": "^1.0.3",
+    "sty": "",
+    "uuid": "^3.3.2",
+    "winston": "^2.4.4"
+  },
+  "devDependencies": {
+    "git-url-parse": "^11.1.2"
+  }
+}
