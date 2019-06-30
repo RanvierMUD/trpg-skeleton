@@ -2,6 +2,8 @@ This is a skeleton project for making a MUD with tactical turn based combat. It
 uses the `tiny` Ranvier project as a base which means it has a basic command parser
 a demo area and a handful of example commands.
 
+![Demo Image](https://i.imgur.com/ixQIF20.png)
+
 This project adds the `attack` command which is used to initiate combat with an NPC.
 
 The example combat setup is extremely simple:
