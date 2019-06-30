@@ -84,10 +84,9 @@ module.exports = {
       B.sayAt(player, 'Cell is already occupied.');
     } else {
       nextCell.setOccupant(player);
-      const moveDamage = new Damage('movement', totalDistance);
+      const moveDamage = new Damage('movement', totalDistance, player);
       moveDamage.commit(player);
 
-      B.sayAt(player, 'You move.');
       controller.menu.showTurnStart(player);
     }
   },

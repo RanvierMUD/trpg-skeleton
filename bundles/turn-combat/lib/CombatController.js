@@ -22,10 +22,22 @@ module.exports = class CombatController {
     this.participants = [];
     this.map = null;
     this.round = 1;
+    this.ttk = null;
     this.orderIndex = null;
     this.BLUETEAM = Symbol('BLUE');
     this.REDTEAM = Symbol('RED');
+    this.OTHERTEAM = Symbol('OTHER');
     this.menu = new CombatMenu(state, this);
+    this._teamCount = {
+      [this.REDTEAM]: 0,
+      [this.BLUETEAM]: 0,
+      [this.OTHERTEAM]: 0,
+    };
+    this._downedCount = {
+      [this.REDTEAM]: 0,
+      [this.BLUETEAM]: 0,
+      [this.OTHERTEAM]: 0,
+    };
   }
 
   /**
@@ -57,6 +69,13 @@ module.exports = class CombatController {
       // TODO: need to roll initiative
       character.getAttribute('initiative')
     ))
+  }
+
+  changeParticipantTeam(participant, team) {
+    this._teamCount[participant.team]--;
+    participant.team = team;
+    participant.character.combatData.team = team;
+    this._teamCount[team]++;
   }
 
   /**
@@ -100,24 +119,40 @@ module.exports = class CombatController {
       currentP.character.emit('combatEndTurn');
     }
 
+
+    // TODO: Reward players if they won
+
     for (const p of this.order) {
+      const { condition } = p.character.combatData;
+
+      p.character.combatData = {};
 
       if (p.character.isNpc) {
+        this.gameState.MobManager.removeMob(p.character);
         continue;
       }
 
-      p.character.emit('combatEnd');
-      p.character.combatData = {};
+      // at the end of combat put downed players at 1 HP
+      if (condition === 'downed') {
+        p.character.setAttribute('health', 1);
+      }
 
+      p.character.emit('combatEnd');
       Broadcast.sayAt(p.character, '-> The battle is over!');
+      Broadcast.prompt(p.character);
     }
+
+    this.participants = null;
+    this.gameState = null;
   }
 
   /**
    * Advance to the next combat turn
    */
   nextTurn() {
-    // TODO: check to see if all characters of a team are downed to end the fight
+    if (this.ttk) {
+      return;
+    }
 
     let currentP = this.currentParticipant;
 
@@ -167,7 +202,10 @@ module.exports = class CombatController {
 
     if (currentChar.isNpc) {
       const ai = currentChar.getMeta('combatAI') ? require('../../../' + currentChar.getMeta('combatAI')) : require('./ai/Idiot');
-      return ai.doTurn(this, currentChar);
+      ai.doTurn(this, currentChar);
+      currentChar.setAttributeToMax('movement');
+      currentChar.setAttributeToMax('attacks');
+      return this.nextTurn();
     }
   }
 
@@ -185,6 +223,14 @@ module.exports = class CombatController {
       Broadcast.sayAt(this, `-> ${target.name} falls unconscious!`);
       target.combatData.condition = 'downed';
       target.emit('downed');
+
+      const { team } = target.combatData;
+
+      this._downedCount[team]++;
+      if (this._downedCount[team] >= this._teamCount[team]) {
+        this.ttk = team;
+        this.endCombat();
+      }
     }
   }
 
@@ -203,6 +249,7 @@ module.exports = class CombatController {
     if (target.getAttribute('health') > 0) {
       Broadcast.sayAt(this, `-> ${target.name} is now conscious!`);
       target.combatData.condition = 'prone';
+      this._downedCount[target.combatData.team]--;
     }
   }
 

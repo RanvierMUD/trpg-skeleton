@@ -86,7 +86,15 @@ module.exports = class CombatMenu {
     }
 
     menu += ''.padStart(width, '-') + '\r\n';
-    menu += `| Movement: ${player.getAttribute('movement')}/${player.getMaxAttribute('movement')}`.padEnd(width - 1) + '|\r\n';
+    let statLine = '| ';
+    statLine += `HP: ${player.getAttribute('health')}/${player.getMaxAttribute('health')}`
+      .padEnd(Math.floor(width / 2) - 2)
+    ;
+    statLine += `MP: ${player.getAttribute('movement')}/${player.getMaxAttribute('movement')}`
+      .padStart(Math.ceil(width / 2) - 2)
+    ;
+    menu += statLine + ' |\r\n';
+    menu += `| Attacks: ${player.getAttribute('attacks')}/${player.getMaxAttribute('attacks')}`.padEnd(width - 2) + ' |\r\n';
     menu += ''.padStart(width, '-');
     B.sayAt(player, menu);
   }

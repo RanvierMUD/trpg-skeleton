@@ -6,7 +6,8 @@
   description: Demo Enemy
   behaviors: []
   attributes:
-    health: 7
+    health: 2
+    attacks: 1
     initiative: 0
     agility: 7
     movement: 3

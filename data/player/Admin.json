@@ -8,6 +8,10 @@
       "delta": 0,
       "base": 3
     },
+    "attacks": {
+      "delta": 0,
+      "base": 1
+    },
     "agility": {
       "delta": 0,
       "base": 10

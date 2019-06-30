@@ -240,7 +240,14 @@ class CombatMap extends AreaFloor {
     })[0];
   }
 
-  static getDistance(cellA, cellB) {
+  /**
+   * WARNING this does plain manhattan distance. It does not take true pathfinding
+   * distance into account
+   * @param {CombatCell} cellA
+   * @param {CombatCell} cellB
+   * @return {number}
+   */
+  getDistance(cellA, cellB) {
     return Math.abs(cellA.coordinates[0] - cellB.coordinates[0]) + Math.abs(cellA.coordinates[1] - cellB.coordinates[1]) - 1;
   }
 };

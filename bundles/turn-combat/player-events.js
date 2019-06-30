@@ -6,8 +6,9 @@ const { Broadcast } = require('ranvier');
 module.exports = {
   listeners: {
     combatEndTurn: state => function () {
-      // reset movement at end of turn
+      // reset per-turn attributes at end of turn
       this.setAttributeToMax('movement');
+      this.setAttributeToMax('attacks');
     },
 
     combatStartTurn: state => function () {
@@ -18,15 +19,19 @@ module.exports = {
       const { controller } = this.combatData;
 
       if (!controller) {
-        return Broadcast.sayAt(this, `You deal ${finalAmount} damage to ${target.name}.`);
+        return Broadcast.sayAt(this, `You deal ${finalAmount} ${damage.attribute} damage to ${target.name}`);
       }
 
-      Broadcast.sayAtExcept(controller, `-> ${target.name} takes ${finalAmount} damage.`, this);
-      Broadcast.sayAt(this, `-> You take ${finalAmount} damage.`);
+      Broadcast.sayAtExcept(controller, `-> ${target.name} takes ${finalAmount} ${damage.attribute} damage.`, this);
     },
 
     damaged: state => function (damage, finalAmount) {
       const { controller } = this.combatData;
+
+      if (damage.attacker === this) {
+        return Broadcast.sayAt(this, `You use ${finalAmount} ${damage.attribute}.`);
+        return;
+      }
 
       if (!controller) {
         return Broadcast.sayAt(this, `You take ${finalAmount} damage.`);

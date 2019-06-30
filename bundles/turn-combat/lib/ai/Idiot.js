@@ -25,13 +25,13 @@ module.exports = class Idiot {
       case 'prone': {
         // can only stand up if it has full movement
         if (move === maxMove) {
-          const cost = new Damage('movement', move);
+          const cost = new Damage('movement', move, npc);
           cost.commit(npc);
           B.sayAt(controller, `-> ${npc.name} stands up.`);
         }
 
         if (!adjacentEnemy) {
-          return controller.nextTurn();
+          return;
         }
       }
     }
@@ -40,32 +40,40 @@ module.exports = class Idiot {
       B.sayAt(controller, `-> ${npc.name} attacks ${adjacentEnemy.name}!`);
       // TODO: this should use an attack roller instead of just doing one damage
       controller.doDamage(new Damage('health', 1), adjacentEnemy);
-      return controller.nextTurn();
+      return;
     }
 
     const nearestPath = map.findPathToNearestEnemy(npc);
     if (!nearestPath) {
       console.log(`The idiot couldn't find an enemy to move to.`);
-      return controller.nextTurn();
+      return;
     }
 
     const { enemy, path } = nearestPath;
 
+    const distance = Math.min(move - 1, path.length - 1);
+
     // get the farther cell the npc can move to
-    const endCoords = path[Math.min(move - 1, path.length - 1)];
+    const endCoords = path[distance];
     const endCell = map.getRoom(...endCoords);
 
     B.sayAt(controller, `-> ${npc.name} moves towards ${enemy.name}.`);
     endCell.setOccupant(npc);
+    const cost = new Damage('movement', distance, npc);
+    cost.commit(npc);
 
-    // if they made it all the way to the target attack it
-    if (endCoords === path[path.length - 1]) {
+    // if they didn't make it all the way to the nearest enemy end the turn
+    if (endCoords !== path[path.length - 1]) {
+      return;
+    }
+
+    const attacks = npc.getAttribute('attacks');
+    for (let i = 0; i < attacks; i++) {
       B.sayAt(controller, `-> ${npc.name} attacks ${enemy.name}!`);
       // TODO: this should use an attack roller instead of just doing one damage
       controller.doDamage(new Damage('health', 1), enemy);
     }
-
-    controller.nextTurn();
-
+    const attackUsage = new Damage('attacks', attacks, npc);
+    attackUsage.commit(npc);
   }
 };
