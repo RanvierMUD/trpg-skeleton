@@ -63,6 +63,7 @@ module.exports = class CombatController {
   addParticipant(character, team) {
     character.combatData.controller = this;
     character.combatData.team = team;
+    this._teamCount[team]++;
     this.participants.push(new CombatParticipant(
       character,
       team,
