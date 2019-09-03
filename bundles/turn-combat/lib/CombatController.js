@@ -133,9 +133,8 @@ module.exports = class CombatController {
             this.gameState.MobManager.removeMob(p.character);
             continue;
         }
-        else
-        //put downed players at 1 HP
-        {
+        else {
+			//put downed players at 1 HP        
             p.character.setAttribute('health', 1);
         }
 	  }
