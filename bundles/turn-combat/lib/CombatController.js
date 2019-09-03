@@ -63,6 +63,7 @@ module.exports = class CombatController {
   addParticipant(character, team) {
     character.combatData.controller = this;
     character.combatData.team = team;
+    this._teamCount[team]++;
     this.participants.push(new CombatParticipant(
       character,
       team,
@@ -127,19 +128,24 @@ module.exports = class CombatController {
 
       p.character.combatData = {};
 
-      if (p.character.isNpc) {
-        this.gameState.MobManager.removeMob(p.character);
-        continue;
-      }
-
-      // at the end of combat put downed players at 1 HP
       if (condition === 'downed') {
-        p.character.setAttribute('health', 1);
-      }
-
-      p.character.emit('combatEnd');
-      Broadcast.sayAt(p.character, '-> The battle is over!');
-      Broadcast.prompt(p.character);
+        if (p.character.isNpc) {
+            this.gameState.MobManager.removeMob(p.character);
+            continue;
+        }
+        else {
+			//put downed players at 1 HP        
+            p.character.setAttribute('health', 1);
+        }
+	  }
+	  B.sayAt(p.character, '-> The battle is over.');
+	  if (!p.character.isNpc) {
+	      p.character.queueCommand({
+	          execute: _ => {
+	              p.character.emit('combatEnd');
+	          }
+	      }, 1000);
+	  }
     }
 
     this.participants = null;
